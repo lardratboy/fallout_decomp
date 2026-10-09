@@ -1,0 +1,237 @@
+# code symbols (CS offset)          
+c 0239 trans_box_close
+c 049d trans_box_open
+c 0702 trans_checker_box_close
+c 07ac trans_checker_box_open
+c 0856 trans_checker_bands
+c 0900 trans_bands
+c 0b84 set_game_palette
+c 0b91 trans_dissolve
+c 0ba1 main
+c 0d6f find_matches
+c 0d93 draw_board
+c 0e29 flash_matches
+c 0f41 key_waiting
+c 0f4b drop_piece
+c 12fd handle_key
+c 15c4 detonate_bomb
+c 179d rotate_piece
+c 1877 hard_drop
+c 194d move_left
+c 19c5 move_right
+c 1a3d place_piece
+c 1a86 erase_piece
+c 1b05 draw_piece
+c 1c8f new_piece
+c 1cf7 init_game
+c 1dde draw_playfield
+c 1e36 new_game
+c 1e97 reset_game
+c 1ef4 add_score
+c 1f25 level_up
+c 1f58 shutdown
+c 1f7e draw_background
+c 1fcc draw_cheat_mode
+c 2021 show_bombs
+c 2052 show_score
+c 20b8 show_level
+c 20fb show_total
+c 2161 show_bonus
+c 21ba load_high_scores
+c 22d4 save_high_scores
+c 2310 scramble
+c 2331 check_high_score
+c 2413 make_bg_tile
+c 24aa room_for_piece
+c 24da game_over_anim
+c 2587 tally_bonus
+c 26e8 set_default_colors
+c 2711 cycle_colors
+c 275a make_brick
+c 27df title_screen
+c 299e title_init
+c 2a72 draw_brick_band
+c 2b93 wave_scroll
+c 2c35 draw_about_text
+c 2cce draw_tile_strip
+c 2d2e scroll_tile_strip
+c 2dde init_stars
+c 2ea9 move_stars
+c 2f18 main_menu
+c 32c8 draw_main_menu
+c 34f9 difficulty_menu
+c 37bb draw_score_panel
+c 392f draw_high_scores
+c 3a95 draw_panel
+c 3b34 pause_game
+c 3b69 bounce_tiles
+c 3c7f draw_bounce_tile
+c 3ca4 move_bounce_tile
+c 3cf5 make_bounce_tile
+c 3dad enter_initials
+c 4071 snd_click
+c 40a3 snd_sweep
+c 40cd snd_short_sweep
+c 40f8 init_font8
+c 417d set_text_bg
+c 418a set_text_color
+c 4195 draw_text
+c 41c2 draw_text_bg
+c 41ef draw_text_centered
+c 4218 draw_text_centered_shadow
+c 4244 draw_char
+c 4272 draw_char_bg
+c 42a4 set_small_color
+c 42af set_small_color2
+c 42ba init_font6
+c 4351 draw_small_text
+c 437e draw_small_char
+c 43ae vga_set_start
+c 43cb vga_set_split
+c 4409 set_palette
+c 441f vga_present
+c 4431 set_video_mode
+c 4440 dead_fill
+c 449f copy_seg
+c 44bf dos_puts
+c 44d7 getkey
+c 44de dos_read
+c 44f0 dos_write
+c 4502 board_clear
+c 451a board_count
+c 4533 str_copy
+c 4552 board_collapse
+c 45c5 board_find_matches
+c 46a5 get_ticks
+c 46ad draw_mask
+c 46f9 draw_sprite
+c 4740 blit
+c 4f5a fill_rect
+c 577d get_pixel
+c 579e put_pixel
+c 57c2 copy_rect
+c 5e58 draw_box
+c 5eae tint_rect
+c 5ef7 swap_color_rect
+c 5f41 draw_mask2
+c 5f8c dissolve7
+c 5fb6 dissolve9
+c 5fe4 atexit
+c 6008 close
+c 6112 exit
+c 6333 srand
+c 6344 rand
+c 64c1 sprintf
+c 652c time
+c 6596 system
+c 6967 toupper
+c 6ab6 allocmem
+c 6c13 creat
+c 6cab delay
+c 6cea freemem
+c 6dd3 kbhit
+c 6f71 open
+c 7110 sound
+c 713c nosound
+c 7167 strlen
+c 791e N_LDIV@
+c 7935 N_LUMOD@
+c 79cc N_LXLSH@
+c 7c63 N_LXMUL@
+# data symbols (DS offset) name size
+d 00a8 logo 1216
+d 0568 game_palette 768
+d 0868 tiles 12100
+d 37ac tile_sets 320
+d 38ec explode_img 605
+d 3b49 explode 10
+d 3b53 unused_3b53 1
+d 3b54 transitions 16
+d 3b64 unused_3b64 2
+d 3b66 col_face 1
+d 3b67 col_light 1
+d 3b68 col_dark 1
+d 3b69 col_shadow 1
+d 3b6a col_text 1
+d 3b6b total 4
+d 3b6f score 4
+d 3b73 bonus 2
+d 3b75 next_level 2
+d 3b77 num_symbols 2
+d 3b79 orient 2
+d 3b7b multiplier 2
+d 3b7d unused_3b7d 2
+d 3b7f cleared 2
+d 3b81 sound_on 2
+d 3b83 speed 2
+d 3b85 level 2
+d 3b87 tile_set 2
+d 3b89 bombs 2
+d 3b8b cheat 1
+d 3b8c bomb_frame 2
+d 3b8e bomb_kind 2
+d 3b90 quit_game 2
+d 3b92 unk_3b92 2
+d 3b94 unk_3b94 2
+d 3b96 unk_3b96 2
+d 3b98 trans_index 2
+d 3b9a color_step 2
+d 3b9c color_base 2
+d 3d14 band_width 2
+d 3d16 num_stars 2
+d 3d18 slow_machine 2
+d 3d1a brick_img 400
+d 3eaa bricks 8
+d 3eb2 brick_pattern 200
+d 3f7a wave_pos 2
+d 3f7c wave_dir 2
+d 3f7e about_left 108
+d 3fea about_right 108
+d 4698 bounce_speed 2
+d 469a bounce_count 2
+d 469c bounce_tick 2
+d 469e bt_face 2
+d 46a0 bt_light 2
+d 46a2 bt_dark 2
+d 46a4 bt_shade 2
+d 46a6 bt_step 2
+d 46f0 wave 2000
+d 4ec0 text_color 1
+d 4ec1 text_bg 2
+d 4ec3 font8_img 2496
+d 5883 font8 76
+d 58cf unused_58cf 1
+d 58d0 font6_img 1512
+d 5eb8 font6 82
+d 5f0a bomb1_img 2178
+d 678c bomb1 54
+d 67c2 bomb2_img 2178
+d 7044 bomb2 50
+# bss
+d 741a piece_row 2
+d 741c piece_col 2
+d 741e save_seg 2
+d 7420 bomb_row 2
+d 7422 sym_count 20
+d 7622 bg_tile 400
+d 77b2 bomb_col 2
+d 77b4 bomb_active 2
+d 77b6 collapse_tmp 17
+d 77c7 marks 153
+d 7860 piece 3
+d 7863 board 153
+d 78fc shell_cmd 100
+d 7960 back_seg 2
+d 7962 transition 2
+d 7964 bomb_x 2
+d 7966 bomb_y 2
+d 7968 hiscore 140
+d 79f4 strip_pos 2
+d 79f6 stars 2000
+d 81c6 strip_scroll 2
+d 8358 brick 60
+d 8398 bounce_img 400
+d 8528 font8_map 512
+d 8728 small_color 1
+d 8729 small_color2 1
+d 872a font6_map 512

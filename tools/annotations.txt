@@ -1,0 +1,84 @@
+# ---- Turbo C++ 1.0 runtime library (small model) ----
+fn 5fe4 atexit
+fn 6008 close
+fn 6112 exit
+fn 6333 srand
+fn 6344 rand
+fn 64c1 sprintf
+fn 652c time
+fn 6596 system
+fn 6967 toupper
+fn 6ab6 allocmem
+fn 6c13 creat
+fn 6cab delay
+fn 6cea freemem
+fn 6dd3 kbhit
+fn 6f71 open
+fn 7110 sound
+fn 713c nosound
+fn 7167 strlen
+sig 6333 void srand(unsigned int seed)
+sig 6344 int rand(void)
+sig 6967 int toupper(int c)
+sig 6ab6 int allocmem(unsigned int size, unsigned int *segp)
+sig 6cea int freemem(unsigned int seg)
+sig 6dd3 int kbhit(void)
+sig 6cab void delay(unsigned int ms)
+sig 7110 void sound(unsigned int freq)
+sig 713c void nosound(void)
+sig 7167 unsigned int strlen(char *s)
+sig 6112 void exit(int status)
+sig 6008 int close(int fd)
+sig 6c13 int creat(char *path, int mode)
+sig 6f71 int open(char *path, int access, int mode)
+sig 6596 int system(char *cmd)
+sig 652c long time(long *t)
+# compiler long-arithmetic helpers
+fn 7c63 __LXMUL
+reg 7c63 DX:AX DX:AX CX:BX
+fn 791e __LDIV
+sig 791e long __LDIV(long a, long b)
+cc 791e __stdcall16near
+purge 791e 8
+fn 7935 __LUMOD
+sig 7935 long __LUMOD(long a, long b)
+cc 7935 __stdcall16near
+purge 7935 8
+fn 79cc __LXLSH
+reg 79cc DX:AX DX:AX CL
+# ---- switch tables ----
+jt 1331 1335 13ca 1486 13d4 1444 1495 14a9 149f 13bc 14e0 1416 1477 1469
+jt 1344 1349 13b9 1359 1399 1362 13a2 13ab
+jt 3024 3028 3064 30b1 30ff 314e 319d 31eb 3241 3239 324a
+jt 3efa 3efe 3f1d 3f17 3f84
+# ---- hand-written assembly module (0x43ae-0x5fe4) ----
+sig 43ae void vga_set_start(unsigned int addr)
+sig 43cb void vga_set_split(unsigned int line)
+sig 4409 void set_palette(unsigned char *pal)
+sig 441f int vga_present(void)
+sig 4431 void set_video_mode(int mode)
+sig 4440 void dead_fill(unsigned int seg, int x, int y, int w, int h, int color)
+sig 449f void copy_seg(unsigned int src, unsigned int dst, unsigned int nwords)
+sig 44bf void dos_puts(char *s)
+sig 44d7 int getkey(void)
+sig 44de int dos_read(int fd, void *buf, unsigned int n)
+sig 44f0 int dos_write(int fd, void *buf, unsigned int n)
+sig 4502 void board_clear(char *b)
+sig 451a int board_count(char *b)
+sig 4533 void str_copy(char *d, char *s)
+sig 4552 void board_collapse(char *b, char *marks, char *tmp)
+sig 45c5 void board_find_matches(char *b, char *marks)
+sig 46a5 long get_ticks(void)
+sig 46ad void draw_mask(unsigned int seg, char *src, int x, int y, int w, int h, int color)
+sig 46f9 void draw_sprite(unsigned int seg, char *src, int x, int y, int w, int h)
+sig 4740 void blit(unsigned int seg, char *src, int x, int y, int w, int h)
+sig 4f5a void fill_rect(unsigned int seg, int x, int y, int w, int h, int color)
+sig 577d int get_pixel(unsigned int seg, int x, int y)
+sig 579e void put_pixel(unsigned int seg, int x, int y, int color)
+sig 57c2 void copy_rect(unsigned int dseg, unsigned int sseg, int dx, int dy, int sx, int sy, int w, int h)
+sig 5e58 void draw_box(unsigned int seg, int x, int y, int w, int h, int color)
+sig 5eae void tint_rect(unsigned int seg, int x, int y, int w, int h, int color)
+sig 5ef7 void swap_color_rect(unsigned int seg, int x, int y, int w, int h, int from, int to)
+sig 5f41 void draw_mask2(unsigned int seg, char *src, int x, int y, int w, int h, int fg, int bg)
+sig 5f8c void dissolve7(unsigned int src, unsigned int dst)
+sig 5fb6 void dissolve9(unsigned int src, unsigned int dst)

@@ -1,0 +1,12 @@
+#ifndef SHIM_IO_H
+#define SHIM_IO_H
+#include <unistd.h>
+#include <fcntl.h>
+#ifndef O_BINARY
+#define O_BINARY 0x8000
+#endif
+#ifndef S_IREAD
+#define S_IREAD  0400
+#define S_IWRITE 0200
+#endif
+#endif
