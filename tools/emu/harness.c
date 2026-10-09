@@ -18,9 +18,9 @@
 unsigned char shim_mem[0x110000];
 union shim_regs shim_r;
 
-/* game globals sampled into the trace */
-extern unsigned long score, total;
-extern unsigned level, bonus;
+/* game variables sampled into the trace (accessors added by mkport.py) */
+unsigned long h_score(void), h_total(void);
+unsigned h_level(void), h_bonus(void);
 int game_main(int argc, char *argv[]);
 
 static FILE *trace;
@@ -124,13 +124,19 @@ static void screenshot(unsigned long t)
     }
 }
 
+static void log_state(void)
+{
+    fprintf(trace, "%08lx %lu %u %u %lu\n",
+            crc32(0L, shim_mem + 0xA0000, 64000), h_score() & 0xFFFFFFFFUL,
+            h_level() & 0xFFFF, h_bonus() & 0xFFFF, h_total() & 0xFFFFFFFFUL);
+}
+
 static void log_tick(unsigned long t)
 {
     dump_state(t);
     screenshot(t);
-    fprintf(trace, "%lu %08lx %lu %u %u %lu\n", t,
-            crc32(0L, shim_mem + 0xA0000, 64000), score & 0xFFFFFFFFUL,
-            level & 0xFFFF, bonus & 0xFFFF, total & 0xFFFFFFFFUL);
+    fprintf(trace, "%lu ", t);
+    log_state();
 }
 
 void geninterrupt(int n)
@@ -202,9 +208,15 @@ int allocmem(unsigned size, unsigned *segp)
 }
 
 int freemem(unsigned seg) { (void)seg; return 0; }
-void sound(unsigned freq) { (void)freq; }
-void nosound(void) { }
-void delay(unsigned ms) { (void)ms; }
+/* the speaker: logged as the calls the game makes */
+void sound(unsigned freq) { fprintf(trace, "sound %u\n", freq & 0xFFFF); }
+void nosound(void) { fprintf(trace, "nosound\n"); }
+/* the end-of-game tally reads no clock, so log the state at every delay() */
+void delay(unsigned ms)
+{
+    fprintf(trace, "delay %u ", ms & 0xFFFF);
+    log_state();
+}
 
 /* INT 21h/0Bh.  Same idle rule as run_original.py: after 1000 empty polls
    the clock jumps to the next scripted key. */

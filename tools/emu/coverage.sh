@@ -8,8 +8,8 @@ OUT=$ROOT/build/coverage
 PY=${PYTHON:-python3}
 mkdir -p "$OUT"; rm -f "$OUT"/*.profraw
 CFLAGS="-O0 -fsigned-char -w -I$ROOT/tools/emu/include -fprofile-instr-generate -fcoverage-mapping -DCOVERAGE"
-$PY "$ROOT/tools/emu/mkbss.py" "$ROOT/src/fallout.c" "$OUT"
-cc $CFLAGS -I"$ROOT/src" -Dmain=game_main -c "$OUT/fallout_bss.c" -o "$OUT/fallout.o"
+$PY "$ROOT/tools/emu/mkport.py" "$ROOT/src/fallout.c" "$OUT"
+cc $CFLAGS -I"$ROOT/src" -Dmain=game_main -c "$OUT/fallout_port.c" -o "$OUT/fallout.o"
 cc $CFLAGS -c "$ROOT/src/gfx.c" -o "$OUT/gfx.o"
 cc $CFLAGS -c "$ROOT/tools/emu/harness.c" -o "$OUT/harness.o"
 cc -fprofile-instr-generate "$OUT"/fallout.o "$OUT"/gfx.o "$OUT"/harness.o -lz -o "$OUT/cov_harness"
@@ -22,6 +22,6 @@ for s in "$@"; do
 done
 xcrun llvm-profdata merge -o "$OUT/all.profdata" "$OUT"/*.profraw
 xcrun llvm-cov report "$OUT/cov_harness" -instr-profile="$OUT/all.profdata" \
-    "$OUT/fallout_bss.c" "$ROOT/src/gfx.c"
+    "$OUT/fallout_port.c" "$ROOT/src/gfx.c"
 xcrun llvm-cov show "$OUT/cov_harness" -instr-profile="$OUT/all.profdata" \
-    "$OUT/fallout_bss.c" "$ROOT/src/gfx.c" > "$OUT/coverage.txt"
+    "$OUT/fallout_port.c" "$ROOT/src/gfx.c" > "$OUT/coverage.txt"

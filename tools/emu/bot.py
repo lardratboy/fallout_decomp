@@ -65,9 +65,10 @@ def top(b, c):
 
 
 class Bot:
-    def __init__(self, menu_keys, games):
+    def __init__(self, menu_keys, games, lose_level=None):
         self.menu = list(menu_keys)
         self.games = games
+        self.lose_level = lose_level        # from this level on, just drop
         self.new_piece = False
         self.initials = []
 
@@ -86,6 +87,8 @@ class Bot:
         bomb_active = m.ds_word(0x77B4)
         bomb_col = m.ds_word(0x77B2)
         bombs = m.ds_word(0x3B89)
+        if self.lose_level is not None and m.ds_word(0x3B85) >= self.lose_level:
+            return [ord('2')]
         best = None
         for swaps in range(3):
             pc = list(p)

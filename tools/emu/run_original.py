@@ -13,11 +13,14 @@ Deterministic model (shared with the native harness in harness.c):
     is exhausted.
   * INT 21h/0Bh (kbhit): after 1000 consecutive polls with no key ready the
     clock jumps to the next scripted key (some loops never read the clock).
-  * delay(), sound(), nosound() from the C library are patched to `ret`.
+  * delay(), sound(), nosound() from the C library are patched to `ret`;
+    their calls are logged.
   * the run also ends after --max-ticks ticks or at program exit.
 
 Trace: one line per get_ticks() call:  "<tick> <crc32 of A000:0000-F9FF>
-<score> <level> <bonus> <total>" plus key-event lines.
+<score> <level> <bonus> <total>", the same state at every delay() call
+("delay <ms> <crc32> ..."; the end-of-game tally runs on delay() alone),
+"sound <freq>" and "nosound" for the speaker, plus key-event lines.
 
 usage: run_original.py UNPACKED.EXE SCRIPT OUT.trace [--max-ticks N]
 """
@@ -37,7 +40,10 @@ BUF_SEGS = [0x3000, 0x4000]  # what INT 21h/48h hands out (same as harness.c)
 DGROUP = LOAD_SEG + 0x07EC
 GET_TICKS_INT = 0x46A7       # offset of "int 1Ah" inside get_ticks()
 SRAND = 0x6333
+SOUND = 0x7110
+NOSOUND = 0x713C
 DROP_PIECE = 0x0F4B
+DELAY = 0x6CAB
 IDLE_POLLS = 1000
 TICK_DIV = int(os.environ.get('TICK_DIV', '1'))   # get_ticks() calls per tick
 DUMP_TICKS = {int(x) for x in os.environ.get('DUMP_TICKS', '').split(',') if x}
@@ -123,6 +129,12 @@ class Machine:
         mu.hook_add(UC_HOOK_INTR, self.on_int)
         a = LOAD_SEG * 16 + SRAND
         mu.hook_add(UC_HOOK_CODE, self.on_srand, begin=a, end=a)
+        a = LOAD_SEG * 16 + DELAY
+        mu.hook_add(UC_HOOK_CODE, self.on_delay, begin=a, end=a)
+        a = LOAD_SEG * 16 + SOUND
+        mu.hook_add(UC_HOOK_CODE, self.on_sound, begin=a, end=a)
+        a = LOAD_SEG * 16 + NOSOUND
+        mu.hook_add(UC_HOOK_CODE, self.on_nosound, begin=a, end=a)
         if bot:
             a = LOAD_SEG * 16 + DROP_PIECE
             mu.hook_add(UC_HOOK_CODE, self.on_drop_piece, begin=a, end=a)
@@ -199,13 +211,29 @@ class Machine:
         for r in range(17):
             self.trace.write('  ' + b[r * 9:r * 9 + 9].hex(' ') + '\n')
 
+    def state(self):
+        vram = bytes(self.mu.mem_read(0xA0000, 64000))
+        return '%08x %d %d %d %d' % (
+            zlib.crc32(vram), self.ds_long(0x3B6F), self.ds_word(0x3B85),
+            self.ds_word(0x3B73), self.ds_long(0x3B6B))
+
     def log_tick(self, t):
         if t in DUMP_TICKS:
             self.dump_state(t)
-        vram = bytes(self.mu.mem_read(0xA0000, 64000))
-        self.trace.write('%d %08x %d %d %d %d\n' % (
-            t, zlib.crc32(vram), self.ds_long(0x3B6F), self.ds_word(0x3B85),
-            self.ds_word(0x3B73), self.ds_long(0x3B6B)))
+        self.trace.write('%d %s\n' % (t, self.state()))
+
+    def on_delay(self, mu, addr, size, user):
+        sp = self.r(UC_X86_REG_SS) * 16 + self.r(UC_X86_REG_SP)
+        ms = struct.unpack('<H', mu.mem_read(sp + 2, 2))[0]
+        self.trace.write('delay %d %s\n' % (ms, self.state()))
+
+    def on_sound(self, mu, addr, size, user):
+        sp = self.r(UC_X86_REG_SS) * 16 + self.r(UC_X86_REG_SP)
+        freq = struct.unpack('<H', mu.mem_read(sp + 2, 2))[0]
+        self.trace.write('sound %d\n' % freq)
+
+    def on_nosound(self, mu, addr, size, user):
+        self.trace.write('nosound\n')
 
     def on_srand(self, mu, addr, size, user):
         sp = self.r(UC_X86_REG_SS) * 16 + self.r(UC_X86_REG_SP)
@@ -322,12 +350,14 @@ def main():
     ap.add_argument('--bot', metavar='RECORD.keys',
                     help='play with the bot (script = menu keys) and record its keys')
     ap.add_argument('--games', type=int, default=1)
+    ap.add_argument('--lose-at-level', type=int, metavar='N',
+                    help='bot: stop playing well once the level reaches N')
     a = ap.parse_args()
     bot = record = None
     keys = load_script(a.script)
     if a.bot:
         import bot as botmod
-        bot = botmod.Bot([b for _, b in keys], a.games)
+        bot = botmod.Bot([b for _, b in keys], a.games, a.lose_at_level)
         keys = []
         record = open(a.bot, 'w')
         record.write('# recorded by run_original.py --bot\n# TICK_DIV=%d\n' % TICK_DIV)

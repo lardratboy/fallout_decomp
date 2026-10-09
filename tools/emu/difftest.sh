@@ -19,9 +19,10 @@ NAME=$(basename "$SCRIPT" .keys)
 
 # native build of the reconstructed sources
 CFLAGS="-O1 -fsigned-char -w -I$ROOT/tools/emu/include"
-# _BSS globals packed in their original order (see mkbss.py)
-$PY "$ROOT/tools/emu/mkbss.py" "$ROOT/src/fallout.c" "$OUT"
-cc $CFLAGS -I"$ROOT/src" -Dmain=game_main -c "$OUT/fallout_bss.c" -o "$OUT/fallout.o"
+# _BSS globals packed in their original order, 16-bit arithmetic patches
+# (see mkport.py; MKPORT_FLAGS=--no-int16 leaves the patches out)
+$PY "$ROOT/tools/emu/mkport.py" $MKPORT_FLAGS "$ROOT/src/fallout.c" "$OUT"
+cc $CFLAGS -I"$ROOT/src" -Dmain=game_main -c "$OUT/fallout_port.c" -o "$OUT/fallout.o"
 cc $CFLAGS -c "$ROOT/src/gfx.c" -o "$OUT/gfx.o"
 cc $CFLAGS -c "$ROOT/tools/emu/harness.c" -o "$OUT/harness.o"
 cc "$OUT/fallout.o" "$OUT/gfx.o" "$OUT/harness.o" -lz -o "$OUT/native_harness"
@@ -29,7 +30,8 @@ cc "$OUT/fallout.o" "$OUT/gfx.o" "$OUT/harness.o" -lz -o "$OUT/native_harness"
 $PY "$ROOT/tools/emu/run_original.py" "$ROOT/build/FALLOUT_UNPACKED.EXE" \
     "$SCRIPT" "$OUT/$NAME.orig.trace" --max-ticks "$MAX"
 SEED=$(sed -n 's/^srand //p' "$OUT/$NAME.orig.trace" | head -1)
-"$OUT/native_harness" "$SCRIPT" "$OUT/$NAME.native.trace" "$SEED" "$MAX"
+# NATIVE_BIN=path/to/fallout NATIVE_ARGS=--harness tests the SDL port instead
+"${NATIVE_BIN:-$OUT/native_harness}" $NATIVE_ARGS "$SCRIPT" "$OUT/$NAME.native.trace" "$SEED" "$MAX"
 
 if cmp -s "$OUT/$NAME.orig.trace" "$OUT/$NAME.native.trace"; then
     echo "MATCH: $NAME ($(grep -c '^[0-9]' "$OUT/$NAME.orig.trace") ticks compared)"

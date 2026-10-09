@@ -21,6 +21,7 @@ src/gfx.c, gfx.h     C versions of the original's hand-written assembly module
 src/data/*.inc       sprites, palette, fonts, tables extracted from the EXE (generated)
 tests/*.keys         key scripts used for differential testing
 tools/               unpacker, analysis scripts, data generator, test harnesses
+ports/sdl/           modern port (in progress), built from the unmodified sources
 docs/                screenshots and an asset sheet (docs/assets.png)
 ```
 
@@ -80,10 +81,12 @@ original binary** and compared frame by frame:
   tick reads", and keys come from a script.
 * `tools/emu/harness.c` compiles the *reconstructed* `fallout.c` + `gfx.c`
   natively against the same model, using a flat 1 MB array for far memory.
-* At **every** read of the BIOS clock, both write the CRC of the whole VGA
-  frame buffer plus score/level/bonus/total to a trace. The traces must be
-  identical, including every keypress, video-mode change, DOS message and the
-  exit code.
+* At **every** read of the BIOS clock and every `delay()` call, both write
+  the CRC of the whole VGA frame buffer plus score/level/bonus/total to a
+  trace. (The end-of-game tally runs on `delay()` alone, without reading the
+  clock.) The traces must be identical, including every keypress, every
+  `sound()`/`nosound()` call, video-mode change, DOS message and the exit
+  code.
 
 Test inputs (`tests/`) include random key fuzzing, scripted play at every
 difficulty and start level, menus, cheat mode, pause, the boss key, high-score
@@ -91,15 +94,19 @@ entry and saving, quitting from every screen, and start-up failures (no VGA, out
 of memory). They also include several long games played by a bot
 (`tools/emu/bot.py`) that steers the original game from its memory; its
 keystrokes are recorded and replayed on both sides. The bot games reach
-level 200+ and scores in the millions.
+level 200+ and scores in the millions; one (`bot_wrap`, recorded with
+`run_original.py --lose-at-level 182`) loses on purpose at level 182 so that
+the end-of-game tally wraps the 16-bit bonus.
 
-**Result: all 31 scripts produce identical traces — about 910,000 frames
+**Result: all 32 scripts produce identical traces — about 1,050,000 frames
+at clock reads plus 125,000 at `delay()` calls and 255,000 speaker calls
 compared, with zero differences.** Source-line coverage of `fallout.c` over the
 suite is 97.5%. The lines not reached are `break`s after `exit()`, code the
 original can never execute, the high-score *file load*, and the "slow machine"
 and midnight-wraparound guards, which a deterministic clock cannot trigger.
 
-To run it yourself (needs `pip install unicorn`, a C compiler and zlib):
+To run it yourself (needs `pip install unicorn`, a C compiler and zlib;
+set `PYTHON=` to use a virtualenv's interpreter):
 
 ```
 tools/emu/run_all.sh                 # every script, prints MATCH/DIFFER
@@ -107,10 +114,18 @@ tools/emu/difftest.sh tests/fuzz1.keys
 tools/emu/coverage.sh tests/*.keys   # clang source coverage
 ```
 
-The native build packs the uninitialised globals into one struct in their
-original order (`tools/emu/mkbss.py`). The original reads past the end of
-`board[]` in one case (see below), and this keeps those reads hitting the same
-neighbouring data.
+The native build compiles a copy of `fallout.c` derived by
+`tools/emu/mkport.py`, and the SDL port uses the same copy:
+
+* The uninitialised globals are packed into one struct in their original order
+  (`tools/emu/mkbss.py`). The original reads past the end of `board[]` in one
+  case (see below), and this keeps those reads hitting the same neighbouring
+  data.
+* Three expressions are patched to wrap at 16 bits as Turbo C's `int` does.
+  The one that matters in play is `bonus`: the end-of-game tally adds up to
+  1000 per level, so at high levels the original's bonus wraps past 65535
+  (`tests/bot_wrap.keys`). `MKPORT_FLAGS=--no-int16` builds without the
+  patches.
 
 ## Things the original does that you might not expect
 
@@ -147,7 +162,9 @@ These are reproduced faithfully in the source and commented there.
   * `B` in the difficulty menu turns on **cheat mode**, which makes bombs
     frequent and disables high scores.
 * `FALLOUT.HIS` is the 140-byte high-score table XORed with 2, 4, 6, ….
-* Score arithmetic is 16-bit (`n * multiplier / 2`), as in the original.
+* Score arithmetic is 16-bit (`n * multiplier / 2`), as in the original, and
+  so is `bonus`: a game ending at a high enough level wraps it during the
+  end-of-game tally, losing 65536 points.
 
 ## Limitations / possible next steps
 
@@ -158,6 +175,6 @@ These are reproduced faithfully in the source and commented there.
   order and similar details.
 * The assembly module is provided as C. Its behaviour is preserved, but its
   unrolled-loop speed is not.
-* A modern port (SDL, 32/64-bit) would be straightforward from this source.
-  `tools/emu/harness.c` already runs the game logic natively; it lacks only a
-  real display and keyboard.
+* A modern SDL port is in progress in `ports/sdl/` (see its README). It
+  compiles the unmodified sources against a DOS stand-in layer, and its
+  replay mode is checked against the original's traces.
