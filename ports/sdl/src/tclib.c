@@ -3,12 +3,14 @@
  * redirects here: rand/srand, exit, system, and the file calls used for
  * FALLOUT.HIS.
  *
- * Files: for now the DOS file model is the test harness's (open fails, so
- * the default high-score table is used; writes are accepted and dropped).
- * Milestone 4 adds the real FALLOUT.HIS with conversion to the 140-byte
- * DOS layout.
+ * Files: the game opens one file, FALLOUT.HIS, reads or writes it whole and
+ * closes it again.  Its high-score table has the DOS layout in memory (see
+ * tools/emu/mkport.py), so the bytes go to and from the file unchanged and a
+ * FALLOUT.HIS from DOS works as is.  The backend loads the file at open()
+ * and saves it at close(); where it lives is up to the backend.
  */
 #include <stdlib.h>
+#include <string.h>
 #include "machine.h"
 
 #if defined(_MSC_VER)
@@ -53,39 +55,78 @@ int fo_system(const char *cmd)
 
 /* ---------------------------------------------------------------- files */
 
-#define HIS_FD 5
+#define FILE_FD     5               /* DOS's first free handle */
+#define FILE_MAX    4096
+
+static struct {
+    int open, writing;
+    char name[64];
+    unsigned char data[FILE_MAX];
+    size_t len, pos;
+} file;
+
+static int file_start(const char *path, int writing)
+{
+    if (file.open || strlen(path) >= sizeof file.name)
+        return -1;
+    strcpy(file.name, path);
+    file.open = 1;
+    file.writing = writing;
+    file.len = file.pos = 0;
+    return FILE_FD;
+}
 
 int fo_open(const char *path, int flags, ...)
 {
-    (void)path;
+    long n;
+
     (void)flags;
-    return -1;
+    if (file_start(path, 0) < 0)
+        return -1;
+    if ((n = be->load_file(path, file.data, FILE_MAX)) < 0) {
+        file.open = 0;                  /* DOS: file not found */
+        return -1;
+    }
+    file.len = (size_t)n;
+    return FILE_FD;
 }
 
+/* creat() truncates the file; the backend replaces it at close() */
 int fo_creat(const char *path, int mode)
 {
-    (void)path;
     (void)mode;
-    return HIS_FD;
+    return file_start(path, 1);
 }
 
 int fo_close(int fd)
 {
-    (void)fd;
+    if (fd != FILE_FD || !file.open)
+        return -1;
+    if (file.writing)
+        be->save_file(file.name, file.data, file.len);
+    file.open = 0;
     return 0;
 }
 
+/* INT 21h/3Fh, 40h: the byte count (the game ignores it) */
 int fo_dos_read(int fd, void *buf, unsigned n)
 {
-    (void)fd;
-    (void)buf;
-    (void)n;
-    return 0;
+    if (fd != FILE_FD || !file.open || file.writing)
+        return 0;
+    if (n > file.len - file.pos)
+        n = (unsigned)(file.len - file.pos);
+    memcpy(buf, file.data + file.pos, n);
+    file.pos += n;
+    return (int)n;
 }
 
 int fo_dos_write(int fd, const void *buf, unsigned n)
 {
-    (void)fd;
-    (void)buf;
+    if (fd != FILE_FD || !file.open || !file.writing)
+        return 0;
+    if (n > FILE_MAX - file.len)
+        n = (unsigned)(FILE_MAX - file.len);
+    memcpy(file.data + file.len, buf, n);
+    file.len += n;
     return (int)n;
 }

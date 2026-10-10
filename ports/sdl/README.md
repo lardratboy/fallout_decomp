@@ -5,8 +5,8 @@ Linux, Windows). `src/fallout.c` and `src/gfx.c` are compiled **unmodified**:
 a platform layer stands in for DOS, the BIOS and the Turbo C library, the
 same way the differential-test harness in `tools/emu/` does.
 
-Status: **milestone 3** — playable with sound (video, keyboard, real-time
-clock, PC speaker). Next: `FALLOUT.HIS` (high scores are not saved yet).
+Status: **milestone 4** — playable with sound (video, keyboard, real-time
+clock, PC speaker), high scores saved in `FALLOUT.HIS`.
 
 ## Build
 
@@ -36,15 +36,34 @@ The port adds:
 | F11, Alt+Enter, Cmd+Ctrl+F | fullscreen on/off |
 | F12 | 4:3 picture (like a CRT) ↔ square pixels with integer scaling |
 | Esc (during play) | pause, like `P` (the original's boss key ran a DOS command) |
-| closing the window, Cmd+Q | quits as F10 does; a second request quits at once |
+| closing the window, Cmd+Q | quits as F10 does, but saves the high scores; a second request quits at once |
 
 Keypad digits always act as digits (NumLock on), which the game treats like
 the arrow keys. Keys pressed with Alt or Cmd never reach the game.
 
 Options: `--fullscreen`, `--scale N` (window size N × 320×240, default 3),
 `--square`, `--seed N` (fixed random seed), `--volume N` (0–100, default 50;
-0 opens no audio device). `--help` lists them. The game's own `S` key turns
+0 opens no audio device), `--hiscores FILE` (see below). `--help` lists them. The game's own `S` key turns
 its sound on and off.
+
+### High scores
+
+The table is kept in `FALLOUT.HIS` in the user's data folder:
+
+| | |
+|---|---|
+| macOS | `~/Library/Application Support/bradptaylor/FallOut/` |
+| Linux | `~/.local/share/bradptaylor/FallOut/` (or `$XDG_DATA_HOME`) |
+| Windows | `%APPDATA%\bradptaylor\FallOut\` |
+
+`--hiscores FILE` uses another file instead. The file is the DOS one, byte for
+byte, so a `FALLOUT.HIS` from the original game can be copied in, and back.
+
+As on DOS, the game reads the file at start-up and writes it when you quit
+with `Q` in the main menu. F10 quits without saving, as it always did.
+Closing the window also quits like F10, but the port saves the table first,
+so a window close does not lose the session's scores. The new file is written
+next to the old one and then renamed over it.
 
 ### Timing
 
@@ -113,7 +132,9 @@ src/audio.c    SDL audio stream, latency ─────────────
   bottom row reads `shell_cmd` through `board[17][col]`). It also applies three
   16-bit arithmetic patches where Turbo C's 16-bit `int` makes a difference.
   The one that matters in play is `bonus`: the end-of-game tally adds up to
-  1000 per level, and on DOS that wraps at 65536.
+  1000 per level, and on DOS that wraps at 65536. Finally, it gives
+  `struct hiscore` its DOS layout (packed, 32-bit score, 16-bit slot), so the
+  table is the 140 bytes of `FALLOUT.HIS` and is read and written unchanged.
 * **`shim/fo_prefix.h`** is force-included into the game. It redirects
   `rand`/`srand` to Turbo C's generator. The host `rand()` would break the
   game, because it returns values up to 2³¹−1 and the game scales by 32767.
@@ -133,12 +154,16 @@ src/audio.c    SDL audio stream, latency ─────────────
 `fallout --harness SCRIPT TRACE SEED [MAX_TICKS]` runs the game against the
 same deterministic BIOS/DOS model as `tools/emu/harness.c` and
 `tools/emu/run_original.py`. It takes the same environment variables
-(`TICK_DIV`, `NO_VGA`, `ALLOC_FAIL`, `DUMP_TICKS`, `SHOT_TICKS`/`SHOT_DIR`) and
-writes the same trace: a CRC of the frame buffer plus score, level, bonus and
-total at every clock read and `delay()`, and every `sound()`/`nosound()` call.
+(`TICK_DIV`, `NO_VGA`, `ALLOC_FAIL`, `HIS_FILE`, `DUMP_TICKS`,
+`SHOT_TICKS`/`SHOT_DIR`) and writes the same trace: a CRC of the frame buffer
+plus score, level, bonus and total at every clock read and `delay()`, and
+every `sound()`/`nosound()` call. Without `HIS_FILE` there is no
+`FALLOUT.HIS`; with it, the game reads that file and every write to the file
+is traced as hex (the file itself is left alone).
 
 * `tests/parity.sh` replays every `tests/*.keys` script and checks each trace
-  against the **original executable's** trace. It compares SHA-256 hashes from
+  against the **original executable's** trace. `tests/t_his_*.keys` load
+  crafted tables (`tests/his/mkhis.py`) and check the bytes the game saves. It compares SHA-256 hashes from
   `tests/golden.txt`, so no emulator is needed, and also compares byte for byte
   when `build/difftest/*.orig.trace` exists. The same binary and platform code
   serve both the replay and the game.

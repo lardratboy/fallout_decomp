@@ -27,6 +27,9 @@ struct backend {
     void (*palette)(const unsigned char *rgb, int first, int count);
     void (*con_out)(const char *s, size_t n);   /* INT 21h/09h, 02h         */
     int  (*boss_key)(const char *cmd);  /* system()                             */
+    /* files (only FALLOUT.HIS), whole: load returns the length, -1 if none */
+    long (*load_file)(const char *name, unsigned char *buf, size_t max);
+    void (*save_file)(const char *name, const unsigned char *buf, size_t n);
     void (*quit)(int status);           /* program exit; never returns          */
 };
 

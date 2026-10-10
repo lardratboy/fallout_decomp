@@ -7,12 +7,13 @@
 #
 # usage: ports/sdl/tests/parity.sh FALLOUT_BIN [SCRIPT.keys ...]
 # Script headers are honoured like tools/emu/run_all.sh:
-#   # TICK_DIV=n      # ENV=NAME=value
-BIN=$1
+#   # TICK_DIV=n      # ENV=NAME=value (paths relative to the repository root)
+abspath() { case $1 in /*) echo "$1" ;; *) echo "$PWD/$1" ;; esac; }
+BIN=$(abspath "$1")
 shift
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 GOLDEN=$ROOT/ports/sdl/tests/golden.txt
-OUT=${PARITY_OUT:-$ROOT/build/parity}
+OUT=$(abspath "${PARITY_OUT:-$ROOT/build/parity}")
 mkdir -p "$OUT"
 [ $# -gt 0 ] || set -- "$ROOT"/tests/*.keys
 
@@ -26,6 +27,7 @@ sha256() {
 
 fail=0
 for s in "$@"; do
+    s=$(abspath "$s")
     name=$(basename "$s" .keys)
     entry=$(grep "^$name " "$GOLDEN")
     if [ -z "$entry" ]; then
@@ -38,7 +40,7 @@ for s in "$@"; do
     div=$(sed -n 's/^# TICK_DIV=//p' "$s")
     extra=$(sed -n 's/^# ENV=//p' "$s")
     trace=$OUT/$name.trace
-    env TICK_DIV="${div:-1}" $extra "$BIN" --harness "$s" "$trace" "$seed" "$max" >/dev/null
+    (cd "$ROOT" && env TICK_DIV="${div:-1}" $extra "$BIN" --harness "$s" "$trace" "$seed" "$max") >/dev/null
     if [ "$(sha256 "$trace")" = "$want" ]; then
         echo "MATCH:  $name ($(grep -c '^[0-9]' "$trace") ticks compared)"
     else

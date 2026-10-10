@@ -1,0 +1,19 @@
+# FALLOUT.HIS present; F10 while entering initials: nothing is saved
+# ENV=HIS_FILE=tests/his/full.his
+40 D
+50 1
+60 7
+80 2
+95 2
+110 2
+125 2
+140 2
+155 2
+170 2
+185 2
+200 2
+215 2
+230 2
+245 2
+4000 k
+4005 F10

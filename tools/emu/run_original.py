@@ -15,6 +15,9 @@ Deterministic model (shared with the native harness in harness.c):
     clock jumps to the next scripted key (some loops never read the clock).
   * delay(), sound(), nosound() from the C library are patched to `ret`;
     their calls are logged.
+  * files: open() fails (no FALLOUT.HIS) and writes are accepted.  With
+    HIS_FILE=path, open() reads that file instead, and every write is traced
+    ("write <n> <hex>"); the file itself is never modified.
   * the run also ends after --max-ticks ticks or at program exit.
 
 Trace: one line per get_ticks() call:  "<tick> <crc32 of A000:0000-F9FF>
@@ -94,6 +97,7 @@ class Machine:
         self.trace = trace
         self.srand_seed = None
         self.alloc = list(BUF_SEGS)
+        self.his = None                          # data of the open file
         mu = self.mu = Uc(UC_ARCH_X86, UC_MODE_16)
         mu.mem_map(0, 0x110000)
 
@@ -269,6 +273,9 @@ class Machine:
         else:
             self.stop('unhandled int %02x at %04x' % (intno, ip))
 
+    def ds_dx(self):
+        return self.r(UC_X86_REG_DS) * 16 + self.r(UC_X86_REG_DX)
+
     def dos(self, ah, al):
         R = UC_X86_REG_AX
         if ah == 0x30:
@@ -309,12 +316,25 @@ class Machine:
                 self.w(R, self.alloc.pop(0)); self.set_cf(0)
         elif ah == 0x49:
             self.set_cf(0)
-        elif ah == 0x3D:                         # open: file not found
-            self.w(R, 2); self.set_cf(1)
+        elif ah == 0x3D:                         # open
+            path = os.environ.get('HIS_FILE')
+            if path and os.path.isfile(path):
+                self.his = open(path, 'rb').read()
+                self.w(R, 5); self.set_cf(0)
+            else:                                # file not found
+                self.w(R, 2); self.set_cf(1)
         elif ah == 0x3C:
             self.w(R, 5); self.set_cf(0)
+        elif ah == 0x3F:                         # read from the open file
+            n = min(self.r(UC_X86_REG_CX), len(self.his))
+            self.mu.mem_write(self.ds_dx(), self.his[:n])
+            self.his = self.his[n:]
+            self.w(R, n); self.set_cf(0)
         elif ah == 0x40:
-            self.w(R, self.r(UC_X86_REG_CX)); self.set_cf(0)
+            n = self.r(UC_X86_REG_CX)
+            if os.environ.get('HIS_FILE'):
+                self.trace.write('write %d %s\n' % (n, bytes(self.mu.mem_read(self.ds_dx(), n)).hex()))
+            self.w(R, n); self.set_cf(0)
         elif ah == 0x3E:
             self.set_cf(0)
         elif ah == 0x29:                         # parse FCB (system())

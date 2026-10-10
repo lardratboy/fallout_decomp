@@ -25,6 +25,9 @@
  *
  * The clock is the BIOS tick count (18.2 Hz) since start; it never wraps at
  * midnight (the original can stall when it does).
+ *
+ * FALLOUT.HIS is kept in the user's data folder (SDL_GetPrefPath), or where
+ * --hiscores says, and replaced atomically when the game saves it.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,8 +43,11 @@
 
 #define IDLE_POLLS  64          /* same-tick get_ticks() calls before sleeping */
 #define RETRACE_HZ  70
+#define HIS_ORG     "bradptaylor"   /* data folder: .../bradptaylor/FallOut/ */
+#define HIS_APP     "FallOut"
 
 void pause_game(void);          /* fallout.c */
+void save_high_scores(void);
 
 static uint64_t t0_ns;
 static unsigned long last_tick;
@@ -329,8 +335,55 @@ static int rt_boss_key(const char *cmd)
     return 0;
 }
 
+static char *his_path;          /* FALLOUT.HIS; NULL: no data folder */
+static enum { HIS_UNREAD, HIS_READ, HIS_SAVED } his_state;
+
+static long rt_load_file(const char *name, unsigned char *buf, size_t max)
+{
+    SDL_IOStream *io;
+    size_t n;
+
+    (void)name;                 /* the game only ever opens FALLOUT.HIS */
+    his_state = HIS_READ;
+    if (!his_path || (io = SDL_IOFromFile(his_path, "rb")) == NULL)
+        return -1;
+    n = SDL_ReadIO(io, buf, max);
+    SDL_CloseIO(io);
+    return (long)n;
+}
+
+/* write a new file next to the old one, then rename it over the old one */
+static void rt_save_file(const char *name, const unsigned char *buf, size_t n)
+{
+    char *tmp;
+    SDL_IOStream *io;
+    bool ok;
+
+    (void)name;
+    his_state = HIS_SAVED;      /* the game's table is scrambled now */
+    if (!his_path || SDL_asprintf(&tmp, "%s.tmp", his_path) < 0)
+        return;
+    ok = (io = SDL_IOFromFile(tmp, "wb")) != NULL;
+    if (ok) {
+        ok = SDL_WriteIO(io, buf, n) == n;
+        ok = SDL_CloseIO(io) && ok;
+    }
+    if (ok)
+        ok = SDL_RenamePath(tmp, his_path);
+    if (!ok) {
+        fprintf(stderr, "high scores not saved: %s: %s\n", his_path, SDL_GetError());
+        SDL_RemovePath(tmp);
+    }
+    SDL_free(tmp);
+}
+
 static void rt_quit(int status)
 {
+    /* Closing the window quits like F10, which does not save the high scores
+       (only Q in the main menu does).  Save them anyway, once the game has
+       read them and unless it has saved them already. */
+    if (quit_requested && his_state == HIS_READ)
+        save_high_scores();
     audio_shutdown();
     video_shutdown();
     SDL_Quit();
@@ -339,7 +392,7 @@ static void rt_quit(int status)
 
 static const struct backend rt_backend = {
     rt_ticks, rt_kbhit, rt_getkey, rt_delay, rt_speaker, rt_video_mode,
-    rt_palette, rt_con_out, rt_boss_key, rt_quit
+    rt_palette, rt_con_out, rt_boss_key, rt_load_file, rt_save_file, rt_quit
 };
 
 /* ---------------------------------------------------------------- start */
@@ -353,6 +406,8 @@ static void usage(const char *prog)
         "  --square            square pixels, integer scaling (toggle: F12)\n"
         "  --seed N            fixed random seed (0..65535)\n"
         "  --volume N          speaker volume, 0..100 (default 50; 0: no audio device)\n"
+        "  --hiscores FILE     high-score file (default: FALLOUT.HIS in the user's\n"
+        "                      data folder; a FALLOUT.HIS from DOS works as is)\n"
         "testing:\n"
         "  --keys SCRIPT       type the bytes of a key script at its BIOS ticks\n"
         "  --shot TICK:FILE    save the window as BMP at that tick (repeatable)\n"
@@ -379,7 +434,10 @@ int rt_main(int argc, char *argv[])
             machine_seed_forced = 1;
             machine_seed = (unsigned)strtoul(argv[++i], 0, 10);
         } else if (strcmp(a, "--volume") == 0 && i + 1 < argc) {
-            volume = SDL_clamp(atoi(argv[++i]), 0, 100);
+            volume = atoi(argv[++i]);
+            volume = SDL_clamp(volume, 0, 100);    /* SDL_clamp is a macro */
+        } else if (strcmp(a, "--hiscores") == 0 && i + 1 < argc) {
+            his_path = SDL_strdup(argv[++i]);
         } else if (strcmp(a, "--keys") == 0 && i + 1 < argc) {
             if ((script_n = keyscript_load(argv[++i], &script)) < 0)
                 return 1;
@@ -408,6 +466,15 @@ int rt_main(int argc, char *argv[])
         return 1;
     }
     audio_init(volume);
+    if (!his_path) {
+        char *dir = SDL_GetPrefPath(HIS_ORG, HIS_APP);
+        if (!dir || SDL_asprintf(&his_path, "%sFALLOUT.HIS", dir) < 0) {
+            fprintf(stderr, "no data folder, high scores will not be saved: %s\n",
+                    SDL_GetError());
+            his_path = NULL;
+        }
+        SDL_free(dir);
+    }
     t0_ns = SDL_GetTicksNS();
     machine_init(&rt_backend, 1);
     return game_main(1, game_argv);

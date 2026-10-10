@@ -8,7 +8,10 @@
  *             the counter reaches its tick.  A blocking read with nothing
  *             available jumps the clock to the next byte; after 1000 empty
  *             kbhit() polls the clock also jumps (some loops never read it);
- *   delay(), sound() and nosound() take no time; system() succeeds at once.
+ *   delay(), sound() and nosound() take no time; system() succeeds at once;
+ *   files:    open() fails and writes are dropped.  With HIS_FILE=path, open()
+ *             reads that file instead and writes are traced; the file itself
+ *             is never modified.
  *
  * The trace has one line per get_ticks() call (tick, CRC-32 of the frame
  * buffer, score, level, bonus, total), the same state at every delay() call,
@@ -171,15 +174,43 @@ static void rp_palette(const unsigned char *rgb, int first, int count)
 }
 static void rp_con_out(const char *s, size_t n) { (void)s; (void)n; }
 static int rp_boss_key(const char *cmd) { (void)cmd; return 0; }
+
+static long rp_load_file(const char *name, unsigned char *buf, size_t max)
+{
+    const char *path = getenv("HIS_FILE");
+    FILE *f;
+    size_t n;
+
+    (void)name;
+    if (!path || (f = fopen(path, "rb")) == 0)
+        return -1;
+    n = fread(buf, 1, max, f);
+    fclose(f);
+    return (long)n;
+}
+
+static void rp_save_file(const char *name, const unsigned char *buf, size_t n)
+{
+    size_t i;
+
+    (void)name;
+    if (!getenv("HIS_FILE"))
+        return;
+    fprintf(trace_file, "write %u ", (unsigned)n);
+    for (i = 0; i < n; i++)
+        fprintf(trace_file, "%02x", buf[i]);
+    fprintf(trace_file, "\n");
+}
+
 static void rp_quit(int status) { (void)status; finish("exit"); }
 
 static const struct backend replay_backend = {
     rp_ticks, rp_kbhit, rp_getkey, rp_delay, rp_speaker, rp_video_mode,
-    rp_palette, rp_con_out, rp_boss_key, rp_quit
+    rp_palette, rp_con_out, rp_boss_key, rp_load_file, rp_save_file, rp_quit
 };
 
 /* SCRIPT TRACE SEED [MAX_TICKS], plus the harness's environment variables
-   TICK_DIV, NO_VGA, ALLOC_FAIL, DUMP_TICKS, SHOT_TICKS/SHOT_DIR. */
+   TICK_DIV, NO_VGA, ALLOC_FAIL, HIS_FILE, DUMP_TICKS, SHOT_TICKS/SHOT_DIR. */
 int replay_main(int argc, char *argv[])
 {
     static char *game_argv[] = { "FALLOUT.EXE", 0 };

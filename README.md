@@ -20,6 +20,7 @@ src/fallout.c        the game: 87 functions, in original order, with original of
 src/gfx.c, gfx.h     C versions of the original's hand-written assembly module
 src/data/*.inc       sprites, palette, fonts, tables extracted from the EXE (generated)
 tests/*.keys         key scripts used for differential testing
+tests/his/           FALLOUT.HIS fixtures for the high-score file tests
 tools/               unpacker, analysis scripts, data generator, test harnesses
 ports/sdl/           modern port (in progress), built from the unmodified sources
 docs/                screenshots and an asset sheet (docs/assets.png)
@@ -91,19 +92,22 @@ original binary** and compared frame by frame:
 Test inputs (`tests/`) include random key fuzzing, scripted play at every
 difficulty and start level, menus, cheat mode, pause, the boss key, high-score
 entry and saving, quitting from every screen, and start-up failures (no VGA, out
-of memory). They also include several long games played by a bot
+of memory). Three scripts start with a `FALLOUT.HIS` present (`# ENV=HIS_FILE=`,
+fixtures from `tests/his/mkhis.py`): a full table and a truncated one, each
+loaded, beaten and saved, and one quit without saving. Every byte the game
+writes to the file is compared too. They also include several long games played by a bot
 (`tools/emu/bot.py`) that steers the original game from its memory; its
 keystrokes are recorded and replayed on both sides. The bot games reach
 level 200+ and scores in the millions; one (`bot_wrap`, recorded with
 `run_original.py --lose-at-level 182`) loses on purpose at level 182 so that
 the end-of-game tally wraps the 16-bit bonus.
 
-**Result: all 32 scripts produce identical traces — about 1,050,000 frames
+**Result: all 35 scripts produce identical traces — about 1,050,000 frames
 at clock reads plus 125,000 at `delay()` calls and 255,000 speaker calls
 compared, with zero differences.** Source-line coverage of `fallout.c` over the
-suite is 97.5%. The lines not reached are `break`s after `exit()`, code the
-original can never execute, the high-score *file load*, and the "slow machine"
-and midnight-wraparound guards, which a deterministic clock cannot trigger.
+suite is 98.4%. The lines not reached are `break`s after `exit()`, code the
+original can never execute, and the "slow machine" and midnight-wraparound
+guards, which a deterministic clock cannot trigger.
 
 To run it yourself (needs `pip install unicorn`, a C compiler and zlib;
 set `PYTHON=` to use a virtualenv's interpreter):
@@ -126,6 +130,10 @@ The native build compiles a copy of `fallout.c` derived by
   1000 per level, so at high levels the original's bonus wraps past 65535
   (`tests/bot_wrap.keys`). `MKPORT_FLAGS=--no-int16` builds without the
   patches.
+* `struct hiscore` is packed into its DOS layout (8-byte name, 32-bit score,
+  16-bit slot), so the table in memory is the 140-byte `FALLOUT.HIS`, as on
+  DOS. A name with no NUL is drawn on into its score bytes, as the original
+  does (`tests/t_his_load.keys`).
 
 ## Things the original does that you might not expect
 
@@ -161,7 +169,10 @@ These are reproduced faithfully in the source and commented there.
   * `F1` on the title screen adds stars.
   * `B` in the difficulty menu turns on **cheat mode**, which makes bombs
     frequent and disables high scores.
-* `FALLOUT.HIS` is the 140-byte high-score table XORed with 2, 4, 6, ….
+* `FALLOUT.HIS` is the 140-byte high-score table XORed with 2, 4, 6, …
+  (a byte, so the key wraps after 127 bytes). It is saved only when quitting
+  with `Q` from the main menu; F10 never saves. A short file leaves the rest of
+  the default table in memory, and that gets scrambled along with the file.
 * Score arithmetic is 16-bit (`n * multiplier / 2`), as in the original, and
   so is `bonus`: a game ending at a high enough level wraps it during the
   end-of-game tally, losing 65536 points.
@@ -175,6 +186,6 @@ These are reproduced faithfully in the source and commented there.
   order and similar details.
 * The assembly module is provided as C. Its behaviour is preserved, but its
   unrolled-loop speed is not.
-* A modern SDL port is in progress in `ports/sdl/` (see its README). It
-  compiles the unmodified sources against a DOS stand-in layer, and its
-  replay mode is checked against the original's traces.
+* A modern SDL port is in `ports/sdl/` (see its README): playable, with sound
+  and high scores. It compiles the unmodified sources against a DOS stand-in
+  layer, and its replay mode is checked against the original's traces.

@@ -175,12 +175,6 @@ void geninterrupt(int n)
             break;
         case 0x02:
             break;
-        case 0x3F:              /* never reached: open() always fails */
-            _AX = 0;
-            break;
-        case 0x40:
-            _AX = _CX;
-            break;
         default:
             fprintf(stderr, "unhandled DOS fn %02x\n", ah);
             finish("unhandled DOS fn");
@@ -255,9 +249,54 @@ int rand(void)
 }
 
 int system(const char *cmd) { (void)cmd; fprintf(trace, "exec\n"); return 0; }
-int open(const char *path, int flags, ...) { (void)path; (void)flags; return -1; }
+/* Files, as in run_original.py: open() fails and writes are accepted.  With
+   HIS_FILE=path, open() reads that file instead and writes are traced.
+   gfx.c's dos_read()/dos_write() pass the buffer in _DX, which cannot hold a
+   64-bit pointer, so the build renames them and these stand in. */
+static unsigned char his[65536];
+static size_t his_len, his_pos;
+
+int open(const char *path, int flags, ...)
+{
+    const char *name = getenv("HIS_FILE");
+    FILE *f;
+
+    (void)path;
+    (void)flags;
+    if (!name || (f = fopen(name, "rb")) == 0)
+        return -1;
+    his_len = fread(his, 1, sizeof his, f);
+    his_pos = 0;
+    fclose(f);
+    return 5;
+}
+
 int creat(const char *path, mode_t mode) { (void)path; (void)mode; return 5; }
 int close(int fd) { (void)fd; return 0; }
+
+int dos_read(int fd, void *buf, unsigned n)
+{
+    (void)fd;
+    if (n > his_len - his_pos)
+        n = (unsigned)(his_len - his_pos);
+    memcpy(buf, his + his_pos, n);
+    his_pos += n;
+    return (int)n;
+}
+
+int dos_write(int fd, void *buf, unsigned n)
+{
+    unsigned i;
+
+    (void)fd;
+    if (getenv("HIS_FILE")) {
+        fprintf(trace, "write %u ", n);
+        for (i = 0; i < n; i++)
+            fprintf(trace, "%02x", ((unsigned char *)buf)[i]);
+        fprintf(trace, "\n");
+    }
+    return (int)n;
+}
 
 /* ------------------------------------------------------------- key script */
 

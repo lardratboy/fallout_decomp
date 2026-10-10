@@ -2,8 +2,10 @@
 # Run the differential test on every tests/*.keys script.
 # Header lines a script may contain:
 #   # TICK_DIV=n      clock rate (get_ticks() calls per tick)
-#   # ENV=NAME=value  extra environment (e.g. NO_VGA=1, ALLOC_FAIL=1)
+#   # ENV=NAME=value  extra environment (e.g. NO_VGA=1, ALLOC_FAIL=1); runs
+#                     in the repository root, so paths are relative to it
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+cd "$ROOT"
 fail=0
 for s in "$ROOT"/tests/*.keys; do
     div=$(sed -n 's/^# TICK_DIV=//p' "$s")
